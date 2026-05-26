@@ -13,12 +13,12 @@ from backend.workflows.registry import NodeRegistry, get_default_registry
 from backend.workflows.state import InvestigationGraphState
 
 PIPELINE_NODES: tuple[str, ...] = (
-    "research",
-    "deduplicate",
-    "analyze",
-    "validate",
-    "persist_memory",
-    "generate_report",
+    "research_node",
+    "deduplicate_node",
+    "analyze_node",
+    "validate_node",
+    "persist_memory_node",
+    "generate_report_node",
 )
 
 

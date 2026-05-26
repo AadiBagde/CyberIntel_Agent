@@ -78,6 +78,21 @@ class InvestigationRepository:
         await self._session.refresh(row)
         return row
 
+    async def save_assessment(
+        self,
+        investigation_id: UUID,
+        *,
+        assessment: ThreatAssessment,
+        status: InvestigationStatus,
+    ) -> InvestigationORM:
+        row = await self.get_by_id(investigation_id)
+        row.assessment = assessment.model_dump(mode="json")
+        row.status = status
+        row.error_message = None
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row
+
     @staticmethod
     def to_record(row: InvestigationORM) -> InvestigationRecord:
         research = ThreatResearch.model_validate(row.research) if row.research else None

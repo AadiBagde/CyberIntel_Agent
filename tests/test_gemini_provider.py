@@ -75,10 +75,10 @@ def test_pydantic_to_gemini_schema_conversion() -> None:
 
 def test_gemini_provider_initialization() -> None:
     """Test provider setup and API key validation."""
-    settings = Settings(GOOGLE_API_KEY="test-api-key", LLM_MODEL="gemini-1.5-flash")
+    settings = Settings(GOOGLE_API_KEY="AIzaSyCWlW-ml3BD4D4tHTW2K1qB7OsGIBWuUc8", LLM_MODEL="gemini-1.5-flash")
     provider = GeminiProvider(settings=settings)
     assert provider.model_name == "gemini-1.5-flash"
-    assert provider._api_key == "test-api-key"
+    assert provider._api_key == "AIzaSyCWlW-ml3BD4D4tHTW2K1qB7OsGIBWuUc8"
 
     # Test key missing error
     settings_missing = Settings(GOOGLE_API_KEY=None)
