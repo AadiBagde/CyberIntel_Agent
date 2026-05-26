@@ -2,7 +2,7 @@
 
 Autonomous threat intelligence with multi-agent reasoning, structured outputs, validation guardrails, and persistent memory—not a thin LLM wrapper.
 
-**Current status: Phase 1 complete** (Research Agent + NVD + CISA KEV).
+**Current status: Phase 2 complete** (Research Agent + Threat Analysis Agent + NVD + CISA KEV).
 
 ## Architecture
 
@@ -79,7 +79,7 @@ Say **"implement Phase 2"** when ready.
 |-----------|--------|
 | Phase 0 Foundation | Done |
 | Research Agent (NVD + CISA KEV) | Done |
-| Threat Analysis Agent | Planned |
+| Threat Analysis Agent | Done |
 | Validation Agent | Planned |
 | Deduplication Layer | Planned |
 | Memory Layer | Planned |

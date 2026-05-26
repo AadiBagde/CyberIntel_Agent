@@ -13,8 +13,9 @@ from backend.schemas.investigation import (
     InvestigationResponse,
 )
 from backend.utils.cve import InvalidCVEError, extract_cve_id
+from backend.agents.analysis_agent import ThreatAnalysisAgent
 from backend.utils.ids import generate_investigation_id
-from backend.workflows.phase1 import compile_phase1_graph
+from backend.workflows.phase2 import compile_phase2_graph
 from backend.workflows.state import InvestigationGraphState
 
 logger = get_logger(__name__)
@@ -25,10 +26,12 @@ class InvestigationService:
         self,
         session: AsyncSession,
         research_agent: ResearchAgent,
+        analysis_agent: ThreatAnalysisAgent,
     ) -> None:
         self._session = session
         self._repo = InvestigationRepository(session)
         self._research_agent = research_agent
+        self._analysis_agent = analysis_agent
 
     async def run_investigation(
         self,
@@ -72,7 +75,7 @@ class InvestigationService:
                 "metadata": dict(request.metadata),
             }
 
-            graph = compile_phase1_graph(self._session, self._research_agent)
+            graph = compile_phase2_graph(self._session, self._research_agent, self._analysis_agent)
             try:
                 final_state = await graph.ainvoke(initial_state)
             except (ExternalServiceError, InvalidCVEError):

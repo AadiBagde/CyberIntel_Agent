@@ -35,11 +35,27 @@ def get_research_agent(
     return build_research_agent(http, settings)
 
 
+from backend.services.llm.gemini_provider import GeminiProvider
+from backend.agents.analysis_agent import ThreatAnalysisAgent
+
+def get_analysis_agent(
+    settings: Settings = Depends(get_settings_dep),
+    request: Request = Request,
+) -> ThreatAnalysisAgent:
+    client = request.app.state.http_client.client
+    llm = GeminiProvider(settings=settings, client=client)
+    return ThreatAnalysisAgent(llm_provider=llm)
+
 def get_investigation_service(
     session: AsyncSession = Depends(get_db),
     research_agent: ResearchAgent = Depends(get_research_agent),
+    analysis_agent: ThreatAnalysisAgent = Depends(get_analysis_agent),
 ) -> InvestigationService:
-    return InvestigationService(session=session, research_agent=research_agent)
+    return InvestigationService(
+        session=session, 
+        research_agent=research_agent,
+        analysis_agent=analysis_agent,
+    )
 
 
 @lru_cache
