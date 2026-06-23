@@ -38,7 +38,7 @@ uvicorn backend.api.main:app --reload
 |--------|------|-------------|
 | GET | `/health` | Quick status |
 | GET | `/api/v1/health` | Postgres + Qdrant health |
-| POST | `/api/v1/investigate` | Run CVE research pipeline |
+| POST | `/api/v1/investigate` | Run CVE research + analysis pipeline |
 | GET | `/api/v1/investigation/{id}` | Fetch investigation |
 
 ### Investigate a CVE
@@ -50,16 +50,24 @@ curl -X POST http://localhost:8000/api/v1/investigate \
   -d "{\"query\": \"CVE-2024-3094\"}"
 ```
 
-Returns `InvestigationResponse` with `ThreatResearch` when successful.
+Returns `InvestigationResponse` with `ThreatResearch` and `ThreatAssessment` when successful.
 
-## Phase 1 capabilities
+## Current capabilities
+
+**Research (Phase 1)**
 
 - CVE validation (`CVE-YYYY-NNNN`)
 - Async NVD CVE 2.0 API integration (retries, rate-limit handling)
 - CISA KEV catalog (cached, degrades gracefully)
 - Provider abstraction for future feeds
-- LangGraph pipeline: `bootstrap → research → persist_artifact`
 - Structured `ThreatResearch` persisted to PostgreSQL
+
+**Analysis (Phase 2)**
+
+- `ThreatAnalysisAgent` reasons over `ThreatResearch` via Gemini LLM
+- Structured `ThreatAssessment`: severity, confidence (0–100), reasoning, remediation, uncertainty notes
+- LangGraph pipeline: `bootstrap → research → analyze → persist_artifact`
+- Analysis failures surface as structured workflow errors; research is still persisted
 
 ## Tests
 
@@ -69,9 +77,9 @@ pytest
 
 ## Next phase
 
-**Phase 2 — Threat Analysis Agent**: LangGraph analysis node, `ThreatAssessment`, reasoning with confidence scores.
+**Phase 3 — Deduplication Layer**: fingerprint hashing, fuzzy matching, and short-circuit on repeat CVE investigations.
 
-Say **"implement Phase 2"** when ready.
+Say **"implement Phase 3"** when ready.
 
 ## MVP progress
 

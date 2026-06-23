@@ -155,10 +155,10 @@ First **real** agent: tool usage, autonomous retrieval, Pydantic-only response b
 
 ### Acceptance criteria
 
-- [ ] Graph runs research then analysis in one `/investigate` call
-- [ ] `confidence` is 0–100 integer with `uncertainty_notes` when data thin
-- [ ] `reasoning` cites fields from research (CVE, CVSS, KEV), not invented CVEs
-- [ ] Graph state persisted in memory for debugging (in-process OK for MVP)
+- [x] Graph runs research then analysis in one `/investigate` call
+- [x] `confidence` is 0–100 integer with `uncertainty_notes` when data thin
+- [x] `reasoning` cites fields from research (CVE, CVSS, KEV), not invented CVEs
+- [x] Graph state persisted in memory for debugging (in-process OK for MVP)
 
 ### Output
 
@@ -400,6 +400,6 @@ When all are checked, v1 MVP is complete:
 
 ## Next action
 
-**Phase 1 is complete.** Start **Phase 2 — Threat Analysis Agent**.
+**Phase 2 is complete.** Start **Phase 3 — Deduplication Layer**.
 
-When ready, say **“implement Phase 2”** and we execute that phase only—no parallel agent work.
+When ready, say **“implement Phase 3”** and we execute that phase only—no parallel agent work.

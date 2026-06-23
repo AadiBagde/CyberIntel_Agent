@@ -1,4 +1,4 @@
-# CyberIntel Agent — Phase 0 Architecture
+# CyberIntel Agent — Architecture
 
 ## Design principles
 
@@ -25,21 +25,22 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Request lifecycle (Phase 0)
+## Request lifecycle
 
 1. Client `POST /api/v1/investigate` with `InvestigationRequest`.
 2. Middleware assigns `X-Trace-Id` (or accepts client-provided).
-3. `InvestigationService` classifies query type, persists row as `queued`.
-4. Response `202 Accepted` with investigation id (no agent execution yet).
-5. Client polls `GET /api/v1/investigation/{id}` for status and future artifacts.
+3. `InvestigationService` validates the CVE query, persists a row as `queued`, and runs the Phase 2 LangGraph pipeline synchronously.
+4. On success, response includes `InvestigationRecord` with `ThreatResearch` and `ThreatAssessment`.
+5. Client may re-fetch via `GET /api/v1/investigation/{id}` at any time.
 
 ## LangGraph strategy
 
 | Phase | Graph behavior |
 |-------|----------------|
 | 0 | Bootstrap-only graph; `PIPELINE_NODES` documents future topology |
-| 1+ | Register `research`, `deduplicate`, … via `NodeRegistry` |
-| 2+ | Full linear pipeline with retries/branching added per phase |
+| 1 | `bootstrap → research → persist` |
+| 2 (current) | `bootstrap → research → analyze → persist` |
+| 3+ | `deduplicate`, `validate`, `persist_memory`, `generate_report` added per phase |
 
 `InvestigationGraphState` is the single source of truth during workflow execution. Structured outputs are copied into PostgreSQL after validation (Phase 4–5).
 
@@ -62,20 +63,33 @@ Alembic manages schema evolution; `init_db()` also supports dev bootstrap via me
 
 ```
 InvestigationService
-  → LangGraph (bootstrap → research → persist)
   → ResearchAgent
   → ThreatIntelProvider[] (NVD required, CISA optional)
   → intelligence_normalizer.merge_provider_results()
-  → ThreatResearch → PostgreSQL JSONB
+  → ThreatResearch
 ```
 
 See **[PHASE1.md](PHASE1.md)** for API examples and error semantics.
+
+## Phase 2 — Threat analysis (implemented)
+
+```
+InvestigationService
+  → LangGraph (bootstrap → research → analyze → persist)
+  → ResearchAgent → ThreatResearch
+  → ThreatAnalysisAgent (Gemini LLM, structured output)
+  → ThreatAssessment
+  → PostgreSQL JSONB (research + assessment)
+```
+
+`ThreatAnalysisAgent` grounds reasoning in the `ThreatResearch` payload. The LLM must return a validated `ThreatAssessment` (severity, confidence 0–100, reasoning, remediation, uncertainty notes). Schema validation failures trigger up to three retries before the workflow fails with a structured error; research artifacts are still persisted on analysis failure.
 
 ## Extension points
 
 | Module | Phase | Responsibility |
 |--------|-------|----------------|
-| `backend/agents/` | 1–4 | `AgentNode` / `ResearchAgent` implementations |
+| `backend/agents/` | 1–4 | `ResearchAgent`, `ThreatAnalysisAgent`, future validation agent |
+| `backend/services/llm/` | 2+ | Gemini provider with Pydantic response validation |
 | `backend/services/providers/` | 1+ | NVD, CISA KEV, future OTX/MITRE feeds |
 | `backend/workflows/registry.py` | 1+ | Node registration |
 | `backend/validators/` | 4 | Rule-based + LLM validation |
