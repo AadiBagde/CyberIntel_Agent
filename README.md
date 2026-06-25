@@ -2,7 +2,7 @@
 
 Autonomous threat intelligence with multi-agent reasoning, structured outputs, validation guardrails, and persistent memory—not a thin LLM wrapper.
 
-**Current status: Phase 2 complete** (Research Agent + Threat Analysis Agent + NVD + CISA KEV).
+**Current status: Phase 3 complete** (Research + Deduplication + Threat Analysis + NVD + CISA KEV).
 
 ## Architecture
 
@@ -38,7 +38,7 @@ uvicorn backend.api.main:app --reload
 |--------|------|-------------|
 | GET | `/health` | Quick status |
 | GET | `/api/v1/health` | Postgres + Qdrant health |
-| POST | `/api/v1/investigate` | Run CVE research + analysis pipeline |
+| POST | `/api/v1/investigate` | Run CVE research + dedup + analysis pipeline |
 | GET | `/api/v1/investigation/{id}` | Fetch investigation |
 
 ### Investigate a CVE
@@ -50,13 +50,37 @@ curl -X POST http://localhost:8000/api/v1/investigate \
   -d "{\"query\": \"CVE-2024-3094\"}"
 ```
 
-Returns `InvestigationResponse` with `ThreatResearch` and `ThreatAssessment` when successful.
+Returns `InvestigationResponse` with `research`, `assessment`, and `deduplication` when successful.
+
+### Fetch an investigation
+
+```bash
+curl http://localhost:8000/api/v1/investigation/{id}
+```
+
+Response includes first-class artifacts:
+
+```json
+{
+  "investigation": {
+    "id": "...",
+    "status": "completed",
+    "research": { },
+    "assessment": { },
+    "deduplication": {
+      "is_duplicate": true,
+      "similarity_score": 1.0,
+      "method": "exact_match"
+    }
+  }
+}
+```
 
 ## Current capabilities
 
 **Research (Phase 1)**
 
-- CVE validation (`CVE-YYYY-NNNN`)
+- CVE validation (`CVE-YYYY-NNNN`, case/space tolerant)
 - Async NVD CVE 2.0 API integration (retries, rate-limit handling)
 - CISA KEV catalog (cached, degrades gracefully)
 - Provider abstraction for future feeds
@@ -66,8 +90,15 @@ Returns `InvestigationResponse` with `ThreatResearch` and `ThreatAssessment` whe
 
 - `ThreatAnalysisAgent` reasons over `ThreatResearch` via Gemini LLM
 - Structured `ThreatAssessment`: severity, confidence (0–100), reasoning, remediation, uncertainty notes
-- LangGraph pipeline: `bootstrap → research → analyze → persist_artifact`
 - Analysis failures surface as structured workflow errors; research is still persisted
+
+**Deduplication (Phase 3)**
+
+- SHA-256 fingerprinting on normalized CVE queries
+- PostgreSQL lookup before analysis; skips LLM on exact duplicate
+- Reuses prior `ThreatResearch` + `ThreatAssessment` from matched investigation
+- LangGraph pipeline: `bootstrap → research → deduplicate → analyze → persist_artifact`
+- Safe DB-failure fallback; structured `deduplication` metadata on every investigation
 
 ## Tests
 
@@ -77,9 +108,9 @@ pytest
 
 ## Next phase
 
-**Phase 3 — Deduplication Layer**: fingerprint hashing, fuzzy matching, and short-circuit on repeat CVE investigations.
+**Phase 4 — Validation Agent**: guardrails for hallucinated CVEs, unsupported exploit claims, and CVSS mismatches.
 
-Say **"implement Phase 3"** when ready.
+Say **"implement Phase 4"** when ready.
 
 ## MVP progress
 
@@ -88,8 +119,8 @@ Say **"implement Phase 3"** when ready.
 | Phase 0 Foundation | Done |
 | Research Agent (NVD + CISA KEV) | Done |
 | Threat Analysis Agent | Done |
+| Deduplication Layer | Done |
 | Validation Agent | Planned |
-| Deduplication Layer | Planned |
 | Memory Layer | Planned |
 | Report Generator | Planned |
 | Basic n8n trigger | Planned |

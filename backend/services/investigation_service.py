@@ -2,6 +2,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.agents.analysis_agent import ThreatAnalysisAgent
+from backend.agents.deduplication_agent import DeduplicationAgent
 from backend.agents.research_agent import ResearchAgent
 from backend.core.exceptions import ExternalServiceError, ValidationError, WorkflowError
 from backend.core.logging import bind_trace_context, get_logger, reset_trace_context
@@ -13,9 +15,9 @@ from backend.schemas.investigation import (
     InvestigationResponse,
 )
 from backend.utils.cve import InvalidCVEError, extract_cve_id
-from backend.agents.analysis_agent import ThreatAnalysisAgent
 from backend.utils.ids import generate_investigation_id
-from backend.workflows.phase2 import compile_phase2_graph
+from backend.services.deduplication_service import DeduplicationService
+from backend.workflows.phase3 import compile_phase3_graph
 from backend.workflows.state import InvestigationGraphState
 
 logger = get_logger(__name__)
@@ -26,11 +28,13 @@ class InvestigationService:
         self,
         session: AsyncSession,
         research_agent: ResearchAgent,
+        deduplication_agent: DeduplicationAgent,
         analysis_agent: ThreatAnalysisAgent,
     ) -> None:
         self._session = session
         self._repo = InvestigationRepository(session)
         self._research_agent = research_agent
+        self._deduplication_agent = deduplication_agent
         self._analysis_agent = analysis_agent
 
     async def run_investigation(
@@ -75,7 +79,12 @@ class InvestigationService:
                 "metadata": dict(request.metadata),
             }
 
-            graph = compile_phase2_graph(self._session, self._research_agent, self._analysis_agent)
+            graph = compile_phase3_graph(
+                self._session,
+                self._research_agent,
+                self._deduplication_agent,
+                self._analysis_agent,
+            )
             try:
                 final_state = await graph.ainvoke(initial_state)
             except (ExternalServiceError, InvalidCVEError):

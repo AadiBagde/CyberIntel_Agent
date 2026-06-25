@@ -5,9 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.exceptions import NotFoundError
 from backend.db.models.investigation import InvestigationORM
+from backend.schemas.deduplication import DeduplicationResult
 from backend.schemas.enums import InvestigationStatus, QueryType
 from backend.schemas.investigation import InvestigationRecord
-from backend.schemas.research import ThreatAssessment, ThreatResearch, ValidationResult
+from backend.schemas.research import ThreatAssessment, ThreatResearch, ValidationResult, parse_threat_assessment
 
 
 class InvestigationRepository:
@@ -93,11 +94,51 @@ class InvestigationRepository:
         await self._session.refresh(row)
         return row
 
+    async def find_completed_by_fingerprint(
+        self,
+        fingerprint: str,
+        *,
+        exclude_investigation_id: UUID,
+    ) -> InvestigationORM | None:
+        result = await self._session.execute(
+            select(InvestigationORM)
+            .where(
+                InvestigationORM.fingerprint == fingerprint,
+                InvestigationORM.status == InvestigationStatus.COMPLETED,
+                InvestigationORM.id != exclude_investigation_id,
+            )
+            .order_by(InvestigationORM.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def save_deduplication(
+        self,
+        investigation_id: UUID,
+        *,
+        fingerprint: str,
+        normalized_query: str,
+        deduplication: DeduplicationResult,
+        status: InvestigationStatus,
+    ) -> InvestigationORM:
+        row = await self.get_by_id(investigation_id)
+        row.fingerprint = fingerprint
+        row.normalized_query = normalized_query
+        row.deduplication = deduplication.model_dump(mode="json")
+        row.status = status
+        row.error_message = None
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row
+
     @staticmethod
     def to_record(row: InvestigationORM) -> InvestigationRecord:
         research = ThreatResearch.model_validate(row.research) if row.research else None
-        assessment = ThreatAssessment.model_validate(row.assessment) if row.assessment else None
+        assessment = parse_threat_assessment(row.assessment) if row.assessment else None
         validation = ValidationResult.model_validate(row.validation) if row.validation else None
+        deduplication = (
+            DeduplicationResult.model_validate(row.deduplication) if row.deduplication else None
+        )
         return InvestigationRecord(
             id=row.id,
             trace_id=row.trace_id,
@@ -109,6 +150,9 @@ class InvestigationRepository:
             research=research,
             assessment=assessment,
             validation=validation,
+            deduplication=deduplication,
+            fingerprint=row.fingerprint,
+            normalized_query=row.normalized_query,
             memory_context=row.memory_context or [],
             report_path=row.report_path,
             error_message=row.error_message,

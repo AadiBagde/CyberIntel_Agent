@@ -41,6 +41,11 @@ class ThreatAssessment(BaseModel):
     attack_path: list[str] = Field(default_factory=list)
 
 
+def parse_threat_assessment(data: object) -> ThreatAssessment:
+    """Parse assessment from JSONB/dict with enum coercion for database round-trips."""
+    return ThreatAssessment.model_validate(data, strict=False)
+
+
 class ValidationIssue(BaseModel):
     field: str | None = None
     issue: str

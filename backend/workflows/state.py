@@ -1,6 +1,7 @@
 from typing import Any, TypedDict
 
 from backend.schemas.enums import InvestigationStatus, QueryType
+from backend.schemas.deduplication import DeduplicationResult
 from backend.schemas.research import ThreatAssessment, ThreatResearch, ValidationResult
 
 
@@ -19,6 +20,9 @@ class InvestigationGraphState(TypedDict, total=False):
     research: ThreatResearch
     assessment: ThreatAssessment
     validation: ValidationResult
+    deduplication: DeduplicationResult
+    fingerprint: str
+    normalized_query: str
     memory_context: list[str]
     errors: list[str]
     metadata: dict[str, Any]

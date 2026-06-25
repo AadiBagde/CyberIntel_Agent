@@ -18,7 +18,7 @@
 ├─────────────────────────────────────────────────────────────┤
 │  Workflows (LangGraph) — state, registry, graph builder        │
 ├─────────────────────────────────────────────────────────────┤
-│  Agents (Phase 1+) — research, analysis, validation nodes    │
+│  Agents (Phase 1+) — research, dedup, analysis, validation   │
 ├─────────────────────────────────────────────────────────────┤
 │  Persistence — SQLAlchemy ORM + repositories                 │
 │  Memory — Qdrant abstraction (Phase 5+)                      │
@@ -29,8 +29,8 @@
 
 1. Client `POST /api/v1/investigate` with `InvestigationRequest`.
 2. Middleware assigns `X-Trace-Id` (or accepts client-provided).
-3. `InvestigationService` validates the CVE query, persists a row as `queued`, and runs the Phase 2 LangGraph pipeline synchronously.
-4. On success, response includes `InvestigationRecord` with `ThreatResearch` and `ThreatAssessment`.
+3. `InvestigationService` validates the CVE query, persists a row as `queued`, and runs the Phase 3 LangGraph pipeline synchronously.
+4. On success, response includes `InvestigationRecord` with `research`, `assessment`, and `deduplication`.
 5. Client may re-fetch via `GET /api/v1/investigation/{id}` at any time.
 
 ## LangGraph strategy
@@ -39,8 +39,15 @@
 |-------|----------------|
 | 0 | Bootstrap-only graph; `PIPELINE_NODES` documents future topology |
 | 1 | `bootstrap → research → persist` |
-| 2 (current) | `bootstrap → research → analyze → persist` |
-| 3+ | `deduplicate`, `validate`, `persist_memory`, `generate_report` added per phase |
+| 2 | `bootstrap → research → analyze → persist` |
+| 3 (current) | `bootstrap → research → deduplicate → analyze → persist` |
+| 4+ | `validate`, `persist_memory`, `generate_report` added per phase |
+
+Target pipeline (MVP):
+
+```
+Research → Deduplication → Analysis → Validation → Memory → Report
+```
 
 `InvestigationGraphState` is the single source of truth during workflow execution. Structured outputs are copied into PostgreSQL after validation (Phase 4–5).
 
@@ -48,9 +55,9 @@
 
 `investigations` table stores:
 
-- Identity: `id`, `trace_id`, `query`, `query_type`
+- Identity: `id`, `trace_id`, `query`, `query_type`, `normalized_query`, `fingerprint`
 - Pipeline: `status`
-- Artifacts: `research`, `assessment`, `validation` as JSONB
+- Artifacts: `research`, `assessment`, `validation`, `deduplication` as JSONB
 - Memory: `memory_context`, `report_path`
 
 Alembic manages schema evolution; `init_db()` also supports dev bootstrap via metadata create.
@@ -74,21 +81,38 @@ See **[PHASE1.md](PHASE1.md)** for API examples and error semantics.
 ## Phase 2 — Threat analysis (implemented)
 
 ```
-InvestigationService
-  → LangGraph (bootstrap → research → analyze → persist)
-  → ResearchAgent → ThreatResearch
-  → ThreatAnalysisAgent (Gemini LLM, structured output)
+ThreatAnalysisAgent (Gemini LLM, structured output)
   → ThreatAssessment
-  → PostgreSQL JSONB (research + assessment)
 ```
 
-`ThreatAnalysisAgent` grounds reasoning in the `ThreatResearch` payload. The LLM must return a validated `ThreatAssessment` (severity, confidence 0–100, reasoning, remediation, uncertainty notes). Schema validation failures trigger up to three retries before the workflow fails with a structured error; research artifacts are still persisted on analysis failure.
+`ThreatAnalysisAgent` grounds reasoning in the `ThreatResearch` payload. Schema validation failures trigger up to three retries before the workflow fails with a structured error.
+
+## Phase 3 — Deduplication (implemented)
+
+```
+InvestigationService
+  → LangGraph (bootstrap → research → deduplicate → analyze → persist)
+  → DeduplicationAgent
+  → DeduplicationService (PostgreSQL fingerprint lookup)
+  → DeduplicationResult
+```
+
+On duplicate detection (`similarity_score` ≥ 1.0, `method=exact_match`):
+
+1. Load prior `ThreatResearch` and `ThreatAssessment` from the matched investigation.
+2. Skip LLM analysis.
+3. Persist deduplication metadata (`fingerprint`, `normalized_query`, `deduplication` JSONB).
+
+CVE queries are normalized before fingerprinting (`CVE-2024-3094`, `cve-2024-3094`, `CVE 2024 3094` → same fingerprint). Phase 5 will add `vector_similarity` via Qdrant with a configurable threshold.
+
+Structured logs (`event=dedup_started`, `dedup_match_found`, `dedup_completed`) propagate trace and investigation ids for observability.
 
 ## Extension points
 
 | Module | Phase | Responsibility |
 |--------|-------|----------------|
-| `backend/agents/` | 1–4 | `ResearchAgent`, `ThreatAnalysisAgent`, future validation agent |
+| `backend/agents/` | 1–4 | `ResearchAgent`, `DeduplicationAgent`, `ThreatAnalysisAgent`, future validation agent |
+| `backend/services/deduplication_service.py` | 3+ | Fingerprinting, PostgreSQL duplicate lookup |
 | `backend/services/llm/` | 2+ | Gemini provider with Pydantic response validation |
 | `backend/services/providers/` | 1+ | NVD, CISA KEV, future OTX/MITRE feeds |
 | `backend/workflows/registry.py` | 1+ | Node registration |

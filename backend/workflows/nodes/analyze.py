@@ -18,6 +18,17 @@ def create_analyze_node(agent: ThreatAnalysisAgent, repo: InvestigationRepositor
 
         logger.info("analyze_node_start investigation_id=%s", investigation_id_str)
 
+        deduplication = state.get("deduplication")
+        if deduplication is not None and deduplication.is_duplicate:
+            logger.info(
+                "analyze_node_skipped investigation_id=%s reason=duplicate matched=%s",
+                investigation_id_str,
+                deduplication.matched_investigation_id,
+            )
+            if state.get("assessment") is not None:
+                state["status"] = InvestigationStatus.ANALYZING
+            return state
+
         if not research:
             error_msg = "Research data missing; cannot perform analysis."
             logger.error("analyze_node_failed investigation_id=%s reason=%s", investigation_id_str, error_msg)

@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.schemas.enums import InvestigationStatus, QueryType, SeverityLevel
+from backend.schemas.deduplication import DeduplicationResult
 from backend.schemas.research import ThreatAssessment, ThreatResearch, ValidationResult
 
 
@@ -40,6 +41,9 @@ class InvestigationRecord(BaseModel):
     research: ThreatResearch | None = None
     assessment: ThreatAssessment | None = None
     validation: ValidationResult | None = None
+    deduplication: DeduplicationResult | None = None
+    fingerprint: str | None = None
+    normalized_query: str | None = None
     memory_context: list[str] = Field(default_factory=list)
     report_path: str | None = None
     error_message: str | None = None

@@ -181,9 +181,9 @@ Retrieve + reason + structured analysis. System starts feeling **agentic**.
 
 ### Acceptance criteria
 
-- [ ] Same CVE investigated twice → second run detects duplicate and short-circuits or merges
-- [ ] Dedup metadata attached to investigation record
-- [ ] Unit tests for hash + fuzzy paths
+- [x] Same CVE investigated twice → second run detects duplicate and short-circuits or merges
+- [x] Dedup metadata attached to investigation record
+- [x] Unit tests for hash + fuzzy paths
 
 ### Output
 
@@ -400,6 +400,6 @@ When all are checked, v1 MVP is complete:
 
 ## Next action
 
-**Phase 2 is complete.** Start **Phase 3 — Deduplication Layer**.
+**Phase 3 is complete.** Start **Phase 4 — Validation Agent**.
 
-When ready, say **“implement Phase 3”** and we execute that phase only—no parallel agent work.
+When ready, say **“implement Phase 4”** and we execute that phase only—no parallel agent work.

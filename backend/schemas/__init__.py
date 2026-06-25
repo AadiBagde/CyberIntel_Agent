@@ -1,3 +1,9 @@
+from backend.schemas.deduplication import (
+    DeduplicationMethod,
+    DeduplicationResult,
+    EXACT_MATCH_THRESHOLD,
+    VECTOR_SIMILARITY_THRESHOLD,
+)
 from backend.schemas.enums import (
     InvestigationStatus,
     QueryType,
@@ -18,6 +24,10 @@ from backend.schemas.research import (
 )
 
 __all__ = [
+    "DeduplicationMethod",
+    "DeduplicationResult",
+    "EXACT_MATCH_THRESHOLD",
+    "VECTOR_SIMILARITY_THRESHOLD",
     "InvestigationCreatedResponse",
     "InvestigationRecord",
     "InvestigationRequest",

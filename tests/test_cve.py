@@ -22,6 +22,15 @@ def test_extract_cve_rejects_missing() -> None:
         extract_cve_id("apt28 campaign")
 
 
+def test_extract_cve_from_spaced_query() -> None:
+    assert extract_cve_id("CVE 2024 3094") == "CVE-2024-3094"
+    assert extract_cve_id("cve 2024 3094") == "CVE-2024-3094"
+
+
+def test_extract_cve_case_insensitive() -> None:
+    assert extract_cve_id("cve-2024-3094") == "CVE-2024-3094"
+
+
 def test_extract_cve_rejects_malformed() -> None:
     with pytest.raises(ValidationError):
         extract_cve_id("CVE-2024-")
